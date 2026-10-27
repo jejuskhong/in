@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>관리자 페이지 - 은행 계산기 & DB 관리</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Firebase SDK (v10 compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --primary-light: #eff6ff;
+      --text-main: #191f28;
+      --text-sub: #4e5968;
+      --text-muted: #8b95a1;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border-color: #e2e8f0;
+      --accent-red: #ef4444;
+      --accent-green: #10b981;
+      --accent-amber: #f59e0b;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
+      --shadow-md: 0 4px 14px rgba(0,0,0,0.06);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-page);
+      color: var(--text-main);
+      padding: 24px 16px 80px;
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 860px;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    .admin-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border-color);
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .admin-header h1 {
+      font-size: 22px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-return {
+      background: #fff;
+      color: var(--text-sub);
+      border: 1px solid var(--border-color);
+      padding: 8px 14px;
+      border-radius: var(--radius-sm);
+      text-decoration: none;
+      font-size: 13.5px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .btn-return:hover {
+      background: #f1f5f9;
+      color: var(--text-main);
+    }
+
+    /* Card */
+    .card {
+      background: var(--bg-card);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-color);
+      box-shadow: var(--shadow-sm);
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .card-title {
+      font-size: 17px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Auth Box */
+    .auth-box {
+      max-width: 380px;
+      margin: 60px auto;
+      text-align: center;
+    }
+
+    .auth-box h2 {
+      font-size: 22px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .auth-box p {
+      font-size: 13.5px;
+      color: var(--text-sub);
+      margin-bottom: 20px;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+      text-align: left;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: var(--text-main);
+    }
+
+    .form-input {
+      width: 100%;
+      height: 44px;
+      padding: 0 14px;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .form-input:focus {
+      border-color: var(--primary);
+    }
+
+    .btn-submit {
+      width: 100%;
+      height: 44px;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn-submit:hover {
+      background: var(--primary-hover);
+    }
+
+    /* DB Status Banner */
+    .status-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      border-radius: var(--radius-md);
+      margin-bottom: 20px;
+      font-size: 13.5px;
+      font-weight: 600;
+    }
+
+    .status-banner.connected {
+      background: #ecfdf5;
+      color: #065f46;
+      border: 1px solid #a7f3d0;
+    }
+
+    .status-banner.local {
+      background: #fffbeb;
+      color: #92400e;
+      border: 1px solid #fde68a;
+    }
+
+    /* Instruction Box */
+    .instruction-box {
+      background: #f8fafc;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      font-size: 12.5px;
+      color: var(--text-sub);
+      line-height: 1.6;
+      margin-bottom: 18px;
+    }
+
+    .instruction-box ol {
+      margin-left: 18px;
+      margin-top: 6px;
+    }
+
+    .code-box {
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 10px;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 12px;
+      margin: 8px 0;
+      white-space: pre;
+    }
+
+    /* Buttons */
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 20px;
+    }
+
+    .btn-action {
+      padding: 9px 18px;
+      border-radius: var(--radius-sm);
+      font-size: 13.5px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid transparent;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-action.primary {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .btn-action.primary:hover {
+      background: var(--primary-hover);
+    }
+
+    .btn-action.danger {
+      background: #fef2f2;
+      color: var(--accent-red);
+      border-color: #fecaca;
+    }
+
+    .btn-action.danger:hover {
+      background: #fee2e2;
+    }
+
+    /* Comment Management Table */
+    .comment-table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      text-align: left;
+    }
+
+    thead th {
+      background: #f8fafc;
+      padding: 10px 14px;
+      color: var(--text-sub);
+      font-weight: 600;
+      border-bottom: 1px solid var(--border-color);
+      white-space: nowrap;
+    }
+
+    tbody td {
+      padding: 12px 14px;
+      border-bottom: 1px solid #f1f5f9;
+      color: var(--text-main);
+      vertical-align: middle;
+    }
+
+    tbody tr:hover {
+      background: #fcfcfd;
+    }
+
+    .btn-del-sm {
+      background: #fef2f2;
+      color: var(--accent-red);
+      border: 1px solid #fecaca;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn-del-sm:hover {
+      background: var(--accent-red);
+      color: #fff;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: rgba(17, 24, 39, 0.92);
+      color: #fff;
+      padding: 10px 22px;
+      border-radius: 999px;
+      font-size: 13.5px;
+      box-shadow: var(--shadow-md);
+      transition: transform 0.25s, opacity 0.25s;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Auth Screen (Shown first) -->
+  <div id="authScreen" class="auth-box card">
+    <h2>🔒 관리자 인증</h2>
+    <p>DB 연동 및 댓글 관리를 위해 관리자 비밀번호를 입력해주세요.</p>
+    <form onsubmit="handleAdminLogin(event)">
+      <div class="form-group">
+        <input type="password" id="adminPasswordInput" class="form-input" placeholder="비밀번호 입력 (기본값: admin1234)" autofocus required>
+      </div>
+      <div id="loginError" style="color: var(--accent-red); font-size: 12px; margin-bottom: 12px; display: none;">비밀번호가 올바르지 않습니다.</div>
+      <button type="submit" class="btn-submit">관리자 로그인</button>
+    </form>
+    <div style="margin-top: 16px;">
+      <a href="index.html" style="font-size: 13px; color: var(--text-muted); text-decoration: none;">← 메인 계산기로 돌아가기</a>
+    </div>
+  </div>
+
+  <!-- Admin Dashboard Screen (Hidden until authenticated) -->
+  <div id="dashboardScreen" style="display: none;">
+    <!-- Top Nav -->
+    <header class="admin-header">
+      <h1>🛠️ 은행 계산기 관리자 대시보드</h1>
+      <div style="display: flex; gap: 8px;">
+        <button type="button" class="btn-return" onclick="handleAdminLogout()">로그아웃</button>
+        <a href="index.html" class="btn-return">메인 계산기 열기 ↗</a>
+      </div>
+    </header>
+
+    <!-- 1. Firebase Firestore Settings -->
+    <div class="card">
+      <div class="card-title">
+        <span>🔥 Firebase Firestore 클라우드 DB 연동</span>
+        <span id="badgeCurrentMode" style="font-size: 12px; padding: 4px 10px; border-radius: 999px; background: #f1f5f9; color: var(--text-sub);">확인 중...</span>
+      </div>
+
+      <div id="dbStatusBanner" class="status-banner local">
+        <span id="dbStatusBannerText">현재 로컬 브라우저 DB 모드로 작동 중입니다.</span>
+      </div>
+
+      <div class="instruction-box">
+        <strong>📌 Firebase 설정값 등록 방법:</strong>
+        <ol>
+          <li><a href="https://console.firebase.google.com" target="_blank" style="color: var(--primary); font-weight: 600;">Firebase Console</a>에서 프로젝트 생성 후 <strong>Firestore Database</strong> 활성화 (테스트 모드)</li>
+          <li>[프로젝트 설정 ⚙️] ➔ [내 앱] ➔ <strong>웹 앱(&lt;/&gt;)</strong> 추가 후 나오는 <code>firebaseConfig</code> 키 입력</li>
+          <li>저장 시 일반 사용자가 접속하는 메인 페이지([index.html])에도 자동으로 클라우드 DB가 적용됩니다.</li>
+        </ol>
+      </div>
+
+      <form id="firebaseConfigForm" onsubmit="handleSaveFirebaseConfig(event)">
+        <div class="form-group">
+          <label class="form-label" for="cfgApiKey">API Key (apiKey)</label>
+          <input type="text" id="cfgApiKey" class="form-input" placeholder="AIzaSyB..." required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="cfgProjectId">Project ID (projectId)</label>
+          <input type="text" id="cfgProjectId" class="form-input" placeholder="my-bank-calc" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="cfgAppId">App ID (appId)</label>
+          <input type="text" id="cfgAppId" class="form-input" placeholder="1:1234567890:web:abcdef..." required>
+        </div>
+
+        <div class="btn-row">
+          <button type="button" class="btn-action danger" onclick="handleResetToLocal()">로컬 모드로 초기화</button>
+          <button type="submit" class="btn-action primary">설정 저장 및 DB 연결</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- 2. Comment Moderation Section -->
+    <div class="card">
+      <div class="card-title">
+        <span>💬 전체 댓글 관리 (관리자 권한 삭제)</span>
+        <button type="button" class="btn-return" style="padding: 4px 10px; font-size: 12px;" onclick="loadCommentsForAdmin()">새로고침 ↻</button>
+      </div>
+      <p style="font-size: 13px; color: var(--text-sub); margin-bottom: 16px;">
+        사용자 비밀번호 없이 관리자 권한으로 부적절한 광고나 악성 댓글을 즉시 강제 삭제할 수 있습니다.
+      </p>
+
+      <div class="comment-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 110px;">작성자</th>
+              <th style="width: 120px;">작성일시</th>
+              <th>댓글 내용 / 첨부 계산</th>
+              <th style="width: 60px; text-align: center;">추천</th>
+              <th style="width: 70px; text-align: center;">관리</th>
+            </tr>
+          </thead>
+          <tbody id="adminCommentTableBody">
+            <!-- Populated dynamically -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 3. Admin Password Change -->
+    <div class="card">
+      <div class="card-title">
+        <span>🔑 관리자 비밀번호 변경</span>
+      </div>
+      <form onsubmit="handleChangeAdminPw(event)" style="max-width: 400px;">
+        <div class="form-group">
+          <label class="form-label" for="newAdminPw">새 비밀번호</label>
+          <input type="password" id="newAdminPw" class="form-input" placeholder="새 비밀번호 입력" required>
+        </div>
+        <button type="submit" class="btn-action primary">비밀번호 변경</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toastMsg">안내 메시지</div>
+
+<script>
+  let db = null;
+  let isFirebase = false;
+  let adminComments = [];
+
+  window.addEventListener('DOMContentLoaded', () => {
+    // Check if already logged in this session
+    if (sessionStorage.getItem('admin_logged_in') === 'true') {
+      showDashboard();
+    }
+  });
+
+  // Login
+  function handleAdminLogin(e) {
+    e.preventDefault();
+    const input = document.getElementById('adminPasswordInput').value.trim();
+    const storedPw = localStorage.getItem('admin_master_password') || 'admin1234';
+
+    if (input === storedPw) {
+      sessionStorage.setItem('admin_logged_in', 'true');
+      showDashboard();
+    } else {
+      document.getElementById('loginError').style.display = 'block';
+    }
+  }
+
+  function handleAdminLogout() {
+    sessionStorage.removeItem('admin_logged_in');
+    location.reload();
+  }
+
+  function showDashboard() {
+    document.getElementById('authScreen').style.display = 'none';
+    document.getElementById('dashboardScreen').style.display = 'block';
+    loadCurrentConfig();
+    loadCommentsForAdmin();
+  }
+
+  // Load Firebase Config
+  function loadCurrentConfig() {
+    try {
+      const cfg = JSON.parse(localStorage.getItem('calc_firebase_config') || 'null');
+      if (cfg && cfg.apiKey && cfg.projectId) {
+        document.getElementById('cfgApiKey').value = cfg.apiKey;
+        document.getElementById('cfgProjectId').value = cfg.projectId;
+        document.getElementById('cfgAppId').value = cfg.appId || '';
+        initFirebaseForAdmin(cfg);
+      } else {
+        showLocalModeState();
+      }
+    } catch (e) {
+      showLocalModeState();
+    }
+  }
+
+  function initFirebaseForAdmin(cfg) {
+    try {
+      if (!firebase.apps.length) {
+        firebase.initializeApp(cfg);
+      }
+      db = firebase.firestore();
+      isFirebase = true;
+
+      const banner = document.getElementById('dbStatusBanner');
+      banner.className = 'status-banner connected';
+      document.getElementById('dbStatusBannerText').innerHTML = `🟢 <strong>Firebase Firestore 연결됨</strong> (프로젝트: ${cfg.projectId})`;
+      
+      const badge = document.getElementById('badgeCurrentMode');
+      badge.textContent = '클라우드 DB';
+      badge.style.background = '#ecfdf5';
+      badge.style.color = '#059669';
+    } catch (err) {
+      showLocalModeState('Firebase 연결 실패: ' + err.message);
+    }
+  }
+
+  function showLocalModeState(msg) {
+    isFirebase = false;
+    db = null;
+    const banner = document.getElementById('dbStatusBanner');
+    banner.className = 'status-banner local';
+    document.getElementById('dbStatusBannerText').textContent = msg || '🟡 현재 로컬 브라우저 DB 모드입니다. (키 입력 시 클라우드 DB 연동)';
+    
+    const badge = document.getElementById('badgeCurrentMode');
+    badge.textContent = '로컬 DB';
+    badge.style.background = '#fffbeb';
+    badge.style.color = '#b45309';
+  }
+
+  // Save Config
+  function handleSaveFirebaseConfig(e) {
+    e.preventDefault();
+    const apiKey = document.getElementById('cfgApiKey').value.trim();
+    const projectId = document.getElementById('cfgProjectId').value.trim();
+    const appId = document.getElementById('cfgAppId').value.trim();
+
+    const config = {
+      apiKey: apiKey,
+      projectId: projectId,
+      appId: appId,
+      authDomain: `${projectId}.firebaseapp.com`
+    };
+
+    localStorage.setItem('calc_firebase_config', JSON.stringify(config));
+    initFirebaseForAdmin(config);
+    showToast('Firebase 설정이 저장되었으며 메인 페이지에도 즉시 적용됩니다!');
+    loadCommentsForAdmin();
+  }
+
+  function handleResetToLocal() {
+    if (!confirm('Firebase 설정을 삭제하고 로컬 DB 모드로 전환하시겠습니까?')) return;
+    localStorage.removeItem('calc_firebase_config');
+    document.getElementById('cfgApiKey').value = '';
+    document.getElementById('cfgProjectId').value = '';
+    document.getElementById('cfgAppId').value = '';
+    showLocalModeState();
+    showToast('로컬 DB 모드로 전환되었습니다.');
+    loadCommentsForAdmin();
+  }
+
+  // Load Comments for Moderation
+  async function loadCommentsForAdmin() {
+    const tbody = document.getElementById('adminCommentTableBody');
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px; color: var(--text-muted);">댓글을 불러오는 중...</td></tr>';
+
+    if (isFirebase && db) {
+      try {
+        const snap = await db.collection('bank_interest_comments').orderBy('createdAt', 'desc').limit(100).get();
+        adminComments = [];
+        snap.forEach(doc => {
+          const d = doc.data();
+          adminComments.push({
+            id: doc.id,
+            nickname: d.nickname || '익명',
+            content: d.content || '',
+            attachedCalc: d.attachedCalc || null,
+            likes: d.likes || 0,
+            createdAt: d.createdAt ? (d.createdAt.toDate ? d.createdAt.toDate().toISOString() : d.createdAt) : new Date().toISOString()
+          });
+        });
+        renderAdminComments();
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--accent-red); padding: 20px;">불러오기 실패: ${err.message}</td></tr>`;
+      }
+    } else {
+      // Local comments
+      try {
+        adminComments = JSON.parse(localStorage.getItem('bank_calc_local_comments') || '[]');
+      } catch (e) {
+        adminComments = [];
+      }
+      renderAdminComments();
+    }
+  }
+
+  function renderAdminComments() {
+    const tbody = document.getElementById('adminCommentTableBody');
+    tbody.innerHTML = '';
+
+    if (!adminComments || adminComments.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 24px; color: var(--text-muted);">등록된 댓글이 없습니다.</td></tr>';
+      return;
+    }
+
+    adminComments.forEach(item => {
+      const tr = document.createElement('tr');
+      const timeStr = item.createdAt ? item.createdAt.substring(0, 16).replace('T', ' ') : '-';
+      
+      let attachTag = '';
+      if (item.attachedCalc) {
+        const c = item.attachedCalc;
+        attachTag = `<div style="font-size: 11px; color: var(--primary); font-weight: 600; margin-top: 4px;">🏷️ [${escapeHtml(c.product)}] ${escapeHtml(c.amount)} / ${escapeHtml(c.rate)} / 세후 ${escapeHtml(c.interestAfter)}</div>`;
+      }
+
+      tr.innerHTML = `
+        <td style="font-weight: 600;">${escapeHtml(item.nickname)}</td>
+        <td style="font-size: 12px; color: var(--text-muted);">${timeStr}</td>
+        <td>
+          <div style="word-break: break-all;">${escapeHtml(item.content)}</div>
+          ${attachTag}
+        </td>
+        <td style="text-align: center; font-weight: 600;">${item.likes || 0}</td>
+        <td style="text-align: center;">
+          <button type="button" class="btn-del-sm" onclick="handleAdminDelete('${item.id}')">강제삭제</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function handleAdminDelete(id) {
+    if (!confirm('관리자 권한으로 이 댓글을 영구 삭제하시겠습니까?')) return;
+
+    if (isFirebase && db) {
+      try {
+        await db.collection('bank_interest_comments').doc(id).delete();
+        showToast('댓글이 삭제되었습니다.');
+        loadCommentsForAdmin();
+      } catch (err) {
+        alert('삭제 실패: ' + err.message);
+      }
+    } else {
+      adminComments = adminComments.filter(c => c.id !== id);
+      localStorage.setItem('bank_calc_local_comments', JSON.stringify(adminComments));
+      showToast('로컬 댓글이 삭제되었습니다.');
+      renderAdminComments();
+    }
+  }
+
+  function handleChangeAdminPw(e) {
+    e.preventDefault();
+    const newPw = document.getElementById('newAdminPw').value.trim();
+    if (newPw.length < 4) {
+      alert('비밀번호는 최소 4자리 이상이어야 합니다.');
+      return;
+    }
+    localStorage.setItem('admin_master_password', newPw);
+    document.getElementById('newAdminPw').value = '';
+    showToast('관리자 비밀번호가 성공적으로 변경되었습니다!');
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toastMsg');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+  }
+
+  function escapeHtml(s) {
+    if (!s) return '';
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+</script>
+
+</body>
+</html>
