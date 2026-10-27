@@ -1,0 +1,2343 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>은행 예·적금 세전/세후 이자 계산기 & 커뮤니티</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Firebase SDK (v10 compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --primary-light: #eff6ff;
+      --primary-border: #bfdbfe;
+      --text-main: #191f28;
+      --text-sub: #4e5968;
+      --text-muted: #8b95a1;
+      --bg-page: #f2f4f6;
+      --bg-card: #ffffff;
+      --border-color: #e5e8eb;
+      --accent-red: #f04452;
+      --accent-green: #00a86b;
+      --accent-amber: #f59e0b;
+      --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.06);
+      --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.08);
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 18px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Apple SD Gothic Neo', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      background-color: var(--bg-page);
+      color: var(--text-main);
+      padding: 24px 16px 80px;
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 940px;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .header-badge {
+      display: inline-block;
+      background: #e0f2fe;
+      color: #0369a1;
+      font-weight: 600;
+      font-size: 13px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      margin-bottom: 8px;
+    }
+
+    .header h1 {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--text-main);
+      letter-spacing: -0.5px;
+    }
+
+    .header p {
+      color: var(--text-sub);
+      font-size: 15px;
+      margin-top: 6px;
+    }
+
+    /* Main Grid */
+    .calculator-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    @media (max-width: 820px) {
+      .calculator-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Card */
+    .card {
+      background: var(--bg-card);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+      padding: 24px;
+      border: 1px solid var(--border-color);
+    }
+
+    /* Product Type Tabs */
+    .tab-group {
+      display: flex;
+      background: #f8fafc;
+      padding: 4px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-color);
+      margin-bottom: 22px;
+    }
+
+    .tab-btn {
+      flex: 1;
+      border: none;
+      background: transparent;
+      padding: 11px 0;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-sub);
+      border-radius: 9px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn.active {
+      background: var(--bg-card);
+      color: var(--primary);
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* Form Groups */
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-main);
+      margin-bottom: 8px;
+    }
+
+    .form-label span.desc {
+      font-weight: 400;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .input-field {
+      width: 100%;
+      height: 48px;
+      padding: 0 48px 0 16px;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-main);
+      border: 1.5px solid var(--border-color);
+      border-radius: var(--radius-md);
+      background: #ffffff;
+      outline: none;
+      transition: all 0.2s;
+      text-align: right;
+    }
+
+    .input-field:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    }
+
+    .input-unit {
+      position: absolute;
+      right: 16px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    /* Quick Buttons */
+    .quick-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .chip-btn {
+      background: #f8fafc;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 5px 10px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-sub);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .chip-btn:hover {
+      background: var(--primary-light);
+      border-color: var(--primary-border);
+      color: var(--primary);
+    }
+
+    .chip-btn.reset {
+      color: var(--accent-red);
+    }
+
+    /* Radio Group */
+    .radio-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .radio-card {
+      position: relative;
+    }
+
+    .radio-card input[type="radio"] {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .radio-label {
+      display: flex;
+      flex-direction: column;
+      padding: 10px 12px;
+      background: #fbfcfd;
+      border: 1.5px solid var(--border-color);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .radio-card input:checked + .radio-label {
+      border-color: var(--primary);
+      background: var(--primary-light);
+    }
+
+    .radio-title {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .radio-card input:checked + .radio-label .radio-title {
+      color: var(--primary);
+    }
+
+    .radio-desc {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* Custom Tax input box */
+    .custom-tax-input {
+      display: none;
+      margin-top: 8px;
+    }
+
+    .custom-tax-input.show {
+      display: flex;
+    }
+
+    /* Method Selector (단리/복리) */
+    .toggle-group {
+      display: flex;
+      gap: 8px;
+    }
+
+    .toggle-btn {
+      flex: 1;
+      padding: 10px;
+      border: 1.5px solid var(--border-color);
+      border-radius: var(--radius-md);
+      background: #fff;
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--text-sub);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .toggle-btn.active {
+      border-color: var(--primary);
+      background: var(--primary-light);
+      color: var(--primary);
+    }
+
+    /* Result Panel */
+    .result-card {
+      background: linear-gradient(180deg, #ffffff 0%, #f9fafb 100%);
+      display: flex;
+      flex-direction: column;
+      position: sticky;
+      top: 20px;
+    }
+
+    .result-header {
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .result-badge {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .total-amount-box {
+      margin-top: 8px;
+    }
+
+    .total-title {
+      font-size: 14px;
+      color: var(--text-sub);
+      font-weight: 500;
+    }
+
+    .total-value-wrap {
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+      margin-top: 4px;
+    }
+
+    .total-value {
+      font-size: 32px;
+      font-weight: 800;
+      color: var(--primary);
+      letter-spacing: -0.5px;
+    }
+
+    .total-unit {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .total-sub {
+      font-size: 13px;
+      color: var(--accent-green);
+      font-weight: 600;
+      margin-top: 2px;
+    }
+
+    /* Summary list */
+    .summary-list {
+      margin-top: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .summary-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 14.5px;
+    }
+
+    .summary-item .label {
+      color: var(--text-sub);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .summary-item .value {
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .summary-item.highlight-interest .value {
+      color: var(--accent-green);
+      font-size: 16px;
+    }
+
+    .summary-item.highlight-tax .value {
+      color: var(--accent-red);
+    }
+
+    /* Tax Breakdown Box */
+    .tax-breakdown {
+      background: #f8fafc;
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      margin-top: 16px;
+      border: 1px dashed #cbd5e1;
+      font-size: 13px;
+    }
+
+    .tax-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 4px;
+      color: var(--text-sub);
+    }
+
+    .tax-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .tax-row.sub-item {
+      padding-left: 10px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* Action Buttons */
+    .actions-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 22px;
+    }
+
+    .action-btn {
+      flex: 1;
+      height: 44px;
+      border-radius: var(--radius-md);
+      border: none;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .btn-copy {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .btn-copy:hover {
+      background: var(--primary-hover);
+    }
+
+    .btn-toggle-table {
+      background: #f1f5f9;
+      color: var(--text-sub);
+      border: 1px solid var(--border-color);
+    }
+
+    .btn-toggle-table:hover {
+      background: #e2e8f0;
+      color: var(--text-main);
+    }
+
+    /* Schedule Section */
+    .schedule-section {
+      margin-top: 24px;
+      background: #fff;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-color);
+      padding: 20px 24px;
+      box-shadow: var(--shadow-sm);
+      display: none;
+    }
+
+    .schedule-section.show {
+      display: block;
+    }
+
+    .schedule-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .table-container {
+      max-height: 320px;
+      overflow-y: auto;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: right;
+      font-size: 13px;
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      background: #f8fafc;
+      color: var(--text-sub);
+      padding: 10px 12px;
+      font-weight: 600;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    tbody td {
+      padding: 9px 12px;
+      border-bottom: 1px solid #f1f5f9;
+      color: var(--text-main);
+    }
+
+    tbody tr:hover {
+      background: #fcfcfd;
+    }
+
+    td.center, th.center {
+      text-align: center;
+    }
+
+    /* ========================================================
+       COMMENTS & DATABASE SECTION
+       ======================================================== */
+    .comments-card {
+      margin-top: 28px;
+      background: var(--bg-card);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-color);
+      box-shadow: var(--shadow-md);
+      padding: 28px;
+    }
+
+    .comments-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border-color);
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .comments-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .comments-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--text-main);
+    }
+
+    .comment-count-badge {
+      background: var(--primary-light);
+      color: var(--primary);
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .db-status-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .db-status-pill {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 5px 12px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+
+    .db-status-pill.firebase-connected {
+      background: #ecfdf5;
+      color: #059669;
+      border: 1px solid #a7f3d0;
+    }
+
+    .db-status-pill.local-mode {
+      background: #fffbeb;
+      color: #b45309;
+      border: 1px solid #fde68a;
+    }
+
+    .db-config-btn {
+      background: #f1f5f9;
+      color: var(--text-sub);
+      border: 1px solid var(--border-color);
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.15s;
+    }
+
+    .db-config-btn:hover {
+      background: #e2e8f0;
+      color: var(--text-main);
+    }
+
+    /* Comment Form */
+    .comment-form {
+      background: #f8fafc;
+      border: 1.5px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 18px;
+      margin-bottom: 24px;
+    }
+
+    .comment-form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    @media (max-width: 600px) {
+      .comment-form-row {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .comment-input {
+      width: 100%;
+      height: 42px;
+      padding: 0 14px;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      background: #fff;
+      font-size: 14px;
+      color: var(--text-main);
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .comment-input:focus {
+      border-color: var(--primary);
+    }
+
+    .comment-textarea {
+      width: 100%;
+      height: 90px;
+      padding: 12px 14px;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      background: #fff;
+      font-size: 14px;
+      color: var(--text-main);
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.2s;
+      line-height: 1.5;
+    }
+
+    .comment-textarea:focus {
+      border-color: var(--primary);
+    }
+
+    .comment-form-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 12px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .attach-calc-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--text-sub);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .attach-calc-label input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+
+    .submit-comment-btn {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      padding: 10px 22px;
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .submit-comment-btn:hover {
+      background: var(--primary-hover);
+    }
+
+    /* Comment List */
+    .comments-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .sort-tabs {
+      display: flex;
+      gap: 6px;
+    }
+
+    .sort-tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 2px 6px;
+    }
+
+    .sort-tab-btn.active {
+      color: var(--text-main);
+      font-weight: 700;
+      text-decoration: underline;
+      text-underline-offset: 4px;
+    }
+
+    .comments-list {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .comment-card {
+      background: #fff;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 16px 18px;
+      transition: all 0.15s ease;
+    }
+
+    .comment-card:hover {
+      border-color: #cbd5e1;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
+
+    .comment-card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 8px;
+    }
+
+    .comment-author-box {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .author-avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+      color: #fff;
+    }
+
+    .author-info {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .author-name {
+      font-size: 14.5px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .comment-time {
+      font-size: 11.5px;
+      color: var(--text-muted);
+    }
+
+    .comment-attached-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      color: #166534;
+      padding: 6px 10px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+
+    .comment-attached-badge svg {
+      width: 14px;
+      height: 14px;
+      color: #16a34a;
+    }
+
+    .comment-body {
+      font-size: 14px;
+      color: var(--text-main);
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .comment-card-bottom {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 12px;
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid #f8fafc;
+    }
+
+    .btn-action-icon {
+      background: transparent;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--text-sub);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.15s;
+    }
+
+    .btn-action-icon:hover {
+      background: #f8fafc;
+      color: var(--text-main);
+    }
+
+    .btn-action-icon.liked {
+      border-color: #fecdd3;
+      background: #fff1f2;
+      color: #e11d48;
+      font-weight: 600;
+    }
+
+    .btn-action-icon.delete-btn:hover {
+      border-color: #fecaca;
+      background: #fef2f2;
+      color: var(--accent-red);
+    }
+
+    .no-comments-box {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    /* Modal Styles */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(3px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      padding: 16px;
+    }
+
+    .modal-overlay.open {
+      display: flex;
+    }
+
+    .modal-box {
+      background: #fff;
+      width: 100%;
+      max-width: 520px;
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg);
+      padding: 24px;
+      position: relative;
+      animation: modalFadeIn 0.2s ease-out;
+    }
+
+    @keyframes modalFadeIn {
+      from { opacity: 0; transform: translateY(12px) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .modal-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .modal-close-btn {
+      background: transparent;
+      border: none;
+      font-size: 20px;
+      color: var(--text-muted);
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .modal-body {
+      font-size: 13.5px;
+      color: var(--text-sub);
+      line-height: 1.5;
+    }
+
+    .modal-code-box {
+      background: #0f172a;
+      color: #e2e8f0;
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      font-family: monospace;
+      font-size: 12px;
+      margin: 10px 0;
+      overflow-x: auto;
+      white-space: pre;
+    }
+
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .modal-btn {
+      padding: 9px 18px;
+      border-radius: var(--radius-sm);
+      font-size: 13.5px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid transparent;
+    }
+
+    .modal-btn.primary {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .modal-btn.secondary {
+      background: #f1f5f9;
+      color: var(--text-sub);
+      border-color: var(--border-color);
+    }
+
+    /* Toast Notification */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: rgba(17, 24, 39, 0.92);
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 999px;
+      font-size: 14px;
+      font-weight: 500;
+      box-shadow: var(--shadow-lg);
+      transition: transform 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28), opacity 0.3s;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 3000;
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    /* Tax Info Box */
+    .info-footer {
+      margin-top: 24px;
+      background: #fff;
+      border-radius: var(--radius-md);
+      padding: 18px 20px;
+      border: 1px solid var(--border-color);
+      font-size: 12.5px;
+      color: var(--text-sub);
+      line-height: 1.6;
+    }
+
+    .info-footer h4 {
+      font-size: 13.5px;
+      color: var(--text-main);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .info-footer ul {
+      padding-left: 18px;
+    }
+
+    .info-footer li {
+      margin-bottom: 4px;
+    }
+
+    /* Tooltip */
+    .tooltip-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: #e2e8f0;
+      color: #64748b;
+      font-size: 10px;
+      cursor: help;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Header -->
+  <header class="header">
+    <div class="header-badge">대한민국 세법 기준 15.4% 원천징수 반영</div>
+    <h1>은행 예·적금 세전/세후 이자 계산기</h1>
+    <p>정기예금과 정기적금의 단리/복리 세전이자, 세금, 세후 수령액을 즉시 계산합니다.</p>
+  </header>
+
+  <div class="calculator-layout">
+    <!-- Left: Inputs -->
+    <div class="card">
+      <!-- Tab: Deposit vs Savings -->
+      <div class="tab-group" role="tablist">
+        <button type="button" class="tab-btn active" id="tabDeposit" onclick="switchProduct('deposit')">정기예금 (목돈 굴리기)</button>
+        <button type="button" class="tab-btn" id="tabSavings" onclick="switchProduct('savings')">정기적금 (목돈 모으기)</button>
+      </div>
+
+      <!-- Amount input -->
+      <div class="form-group">
+        <label class="form-label" for="amountInput">
+          <span id="amountLabel">예치 원금</span>
+          <span class="desc" id="amountKoreanText">0원</span>
+        </label>
+        <div class="input-wrapper">
+          <input type="text" id="amountInput" class="input-field" value="10,000,000" inputmode="numeric" oninput="handleAmountInput(this)">
+          <span class="input-unit">원</span>
+        </div>
+        <div class="quick-chips">
+          <button type="button" class="chip-btn" onclick="addAmount(100000)">+10만</button>
+          <button type="button" class="chip-btn" onclick="addAmount(1000000)">+100만</button>
+          <button type="button" class="chip-btn" onclick="addAmount(10000000)">+1,000만</button>
+          <button type="button" class="chip-btn" onclick="addAmount(50000000)">+5,000만</button>
+          <button type="button" class="chip-btn reset" onclick="resetAmount()">정정</button>
+        </div>
+      </div>
+
+      <!-- Period input -->
+      <div class="form-group">
+        <label class="form-label" for="periodInput">
+          <span>예치 기간</span>
+          <span class="desc" id="periodYearText">1년</span>
+        </label>
+        <div class="input-wrapper">
+          <input type="number" id="periodInput" class="input-field" value="12" min="1" max="120" oninput="calculate()">
+          <span class="input-unit">개월</span>
+        </div>
+        <div class="quick-chips">
+          <button type="button" class="chip-btn" onclick="setPeriod(6)">6개월</button>
+          <button type="button" class="chip-btn" onclick="setPeriod(12)">12개월 (1년)</button>
+          <button type="button" class="chip-btn" onclick="setPeriod(24)">24개월 (2년)</button>
+          <button type="button" class="chip-btn" onclick="setPeriod(36)">36개월 (3년)</button>
+        </div>
+      </div>
+
+      <!-- Rate input -->
+      <div class="form-group">
+        <label class="form-label" for="rateInput">
+          <span>연 이자율 (기본금리 + 우대금리)</span>
+          <span class="desc">소수점 둘째 자리까지 지원</span>
+        </label>
+        <div class="input-wrapper">
+          <input type="number" id="rateInput" class="input-field" value="3.50" step="0.05" min="0.01" max="50" oninput="calculate()">
+          <span class="input-unit">%</span>
+        </div>
+        <div class="quick-chips">
+          <button type="button" class="chip-btn" onclick="setRate(2.5)">2.5%</button>
+          <button type="button" class="chip-btn" onclick="setRate(3.0)">3.0%</button>
+          <button type="button" class="chip-btn" onclick="setRate(3.5)">3.5%</button>
+          <button type="button" class="chip-btn" onclick="setRate(4.0)">4.0%</button>
+          <button type="button" class="chip-btn" onclick="setRate(5.0)">5.0%</button>
+        </div>
+      </div>
+
+      <!-- Calculation method: Simple vs Compound -->
+      <div class="form-group">
+        <label class="form-label">
+          <span>이자 계산 방식</span>
+          <span class="desc">대부분의 은행 상품은 '단리' 적용</span>
+        </label>
+        <div class="toggle-group">
+          <button type="button" class="toggle-btn active" id="btnSimple" onclick="setMethod('simple')">단리 (일반적)</button>
+          <button type="button" class="toggle-btn" id="btnCompound" onclick="setMethod('compound')">월복리</button>
+        </div>
+      </div>
+
+      <!-- Taxation Type -->
+      <div class="form-group" style="margin-bottom: 0;">
+        <label class="form-label">
+          <span>이자 과세 구분</span>
+          <span class="tooltip-icon" title="일반과세: 이자소득세 14% + 지방소득세 1.4% = 총 15.4%">?</span>
+        </label>
+        <div class="radio-grid">
+          <div class="radio-card">
+            <input type="radio" id="taxNormal" name="taxType" value="normal" checked onchange="handleTaxChange()">
+            <label class="radio-label" for="taxNormal">
+              <span class="radio-title">일반과세 <span>15.4%</span></span>
+              <span class="radio-desc">소득세 14% + 지방세 1.4%</span>
+            </label>
+          </div>
+          <div class="radio-card">
+            <input type="radio" id="taxPrefer" name="taxType" value="prefer" onchange="handleTaxChange()">
+            <label class="radio-label" for="taxPrefer">
+              <span class="radio-title">세금우대 <span>1.4%</span></span>
+              <span class="radio-desc">상호금융/신협/새마을금고</span>
+            </label>
+          </div>
+          <div class="radio-card">
+            <input type="radio" id="taxZero" name="taxType" value="zero" onchange="handleTaxChange()">
+            <label class="radio-label" for="taxZero">
+              <span class="radio-title">비과세 <span>0%</span></span>
+              <span class="radio-desc">ISA, 청년계좌, 65세이상</span>
+            </label>
+          </div>
+          <div class="radio-card">
+            <input type="radio" id="taxCustom" name="taxType" value="custom" onchange="handleTaxChange()">
+            <label class="radio-label" for="taxCustom">
+              <span class="radio-title">직접입력 <span>설정</span></span>
+              <span class="radio-desc">사용자 지정 세율 (%)</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="custom-tax-input" id="customTaxWrap">
+          <div class="input-wrapper" style="width: 100%;">
+            <input type="number" id="customTaxInput" class="input-field" value="9.5" step="0.1" min="0" max="100" placeholder="세율 입력" oninput="calculate()">
+            <span class="input-unit">%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Result Display -->
+    <div class="card result-card">
+      <div class="result-header">
+        <span class="result-badge" id="resultTypeBadge">정기예금 만기 예상 결과</span>
+        <div class="total-amount-box">
+          <div class="total-title">만기 총 수령액 (원금 + 세후이자)</div>
+          <div class="total-value-wrap">
+            <span class="total-value" id="resTotalPayout">10,296,100</span>
+            <span class="total-unit">원</span>
+          </div>
+          <div class="total-sub" id="resRealYield">실질 수익률: 세후 연 2.96%</div>
+        </div>
+      </div>
+
+      <!-- Detail rows -->
+      <div class="summary-list">
+        <div class="summary-item">
+          <span class="label">총 납입 원금</span>
+          <span class="value" id="resPrincipal">10,000,000원</span>
+        </div>
+
+        <div class="summary-item highlight-interest">
+          <span class="label">세전 이자</span>
+          <span class="value" id="resInterestBefore">350,000원</span>
+        </div>
+
+        <div class="summary-item highlight-tax">
+          <span class="label">총 차감 세금</span>
+          <span class="value" id="resTotalTax">- 53,900원</span>
+        </div>
+
+        <div class="summary-item">
+          <span class="label">세후 순수령 이자</span>
+          <span class="value" style="color: var(--primary);" id="resInterestAfter">296,100원</span>
+        </div>
+      </div>
+
+      <!-- Detailed Tax Breakdown -->
+      <div class="tax-breakdown" id="taxBreakdownBox">
+        <div class="tax-row">
+          <span>세금 상세 내역 (<span id="taxRateLabel">15.4%</span> 적용)</span>
+          <span id="taxTotalInBox" style="font-weight: 600;">53,900원</span>
+        </div>
+        <div class="tax-row sub-item" id="incomeTaxRow">
+          <span>• 이자소득세 (14%)</span>
+          <span id="resIncomeTax">49,000원</span>
+        </div>
+        <div class="tax-row sub-item" id="localTaxRow">
+          <span>• 지방소득세 (이자소득세의 10%)</span>
+          <span id="resLocalTax">4,900원</span>
+        </div>
+        <div class="tax-row sub-item" id="agriTaxRow" style="display: none;">
+          <span>• 농어촌특별세 (1.4%)</span>
+          <span id="resAgriTax">0원</span>
+        </div>
+      </div>
+
+      <!-- Buttons -->
+      <div class="actions-group">
+        <button type="button" class="action-btn btn-copy" onclick="copyCalculationResult()">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M16 1H4C2.9 1 2 1.9 2 3v14h2V3h12V1zm3 4H8C6.9 5 6 5.9 6 7v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+          결과 복사하기
+        </button>
+        <button type="button" class="action-btn btn-toggle-table" id="toggleTableBtn" onclick="toggleScheduleTable()">
+          월별 내역 보기 ▼
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Monthly Schedule Table -->
+  <div class="schedule-section" id="scheduleSection">
+    <div class="schedule-title">
+      <span id="tableTitleText">월별 납입 및 이자 발생 내역</span>
+      <span style="font-size: 12px; font-weight: normal; color: var(--text-muted);">(원 단위 절사 기준)</span>
+    </div>
+    <div class="table-container">
+      <table id="scheduleTable">
+        <thead>
+          <tr>
+            <th class="center">회차(월)</th>
+            <th id="thPayment">납입금액</th>
+            <th>누적원금</th>
+            <th>해당월 발생 세전이자</th>
+            <th>누적 세전이자</th>
+          </tr>
+        </thead>
+        <tbody id="scheduleTableBody">
+          <!-- Populated by JS -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       COMMENTS & DATABASE INTEGRATION SECTION
+       ========================================== -->
+  <div class="comments-card" id="commentsArea">
+    <div class="comments-header">
+      <div class="comments-title-wrap">
+        <span class="comments-title">💬 금융 상품 후기 & 댓글</span>
+        <span class="comment-count-badge" id="commentCountBadge">0개</span>
+      </div>
+      <div class="db-status-wrap">
+        <span class="db-status-pill local-mode" id="dbStatusBadge" onclick="openDbConfigModal()">
+          <span style="font-size: 11px;">●</span> <span id="dbStatusText">로컬 테스트 DB 모드</span>
+        </span>
+        <button type="button" class="db-config-btn" onclick="openDbConfigModal()">
+          <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+          DB 연동 설정
+        </button>
+      </div>
+    </div>
+
+    <!-- Comment Form -->
+    <form class="comment-form" id="commentForm" onsubmit="handleCommentSubmit(event)">
+      <div class="comment-form-row">
+        <input type="text" id="inputNickname" class="comment-input" placeholder="닉네임 (2~15자)" maxlength="15" required>
+        <input type="password" id="inputPassword" class="comment-input" placeholder="비밀번호 (댓글 삭제 시 확인용)" maxlength="20" required>
+      </div>
+      <textarea id="inputContent" class="comment-textarea" placeholder="금융 상품에 대한 의견, 예적금 가입 후기, 팁을 자유롭게 남겨보세요. (최대 300자)" maxlength="300" required></textarea>
+      <div class="comment-form-footer">
+        <label class="attach-calc-label">
+          <input type="checkbox" id="attachCalcCheckbox" checked>
+          <span>현재 계산한 예·적금 결과 함께 공유하기</span>
+        </label>
+        <button type="submit" class="submit-comment-btn" id="btnSubmitComment">
+          <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+          댓글 등록
+        </button>
+      </div>
+    </form>
+
+    <!-- Comment List Toolbar -->
+    <div class="comments-toolbar">
+      <div class="sort-tabs">
+        <button type="button" class="sort-tab-btn active" id="sortNewest" onclick="changeSort('newest')">최신순</button>
+        <span style="color: #cbd5e1;">|</span>
+        <button type="button" class="sort-tab-btn" id="sortLikes" onclick="changeSort('likes')">추천순</button>
+      </div>
+      <div>실시간 업데이트 지원</div>
+    </div>
+
+    <!-- Comment Cards Container -->
+    <div class="comments-list" id="commentsListContainer">
+      <!-- Populated dynamically -->
+    </div>
+  </div>
+
+  <!-- Explanations and Legal Notice -->
+  <div class="info-footer">
+    <h4>💡 한국 은행 이자과세 및 계산 유의사항</h4>
+    <ul>
+      <li><strong>일반과세 (15.4%)</strong>: 소득세법에 따라 이자소득세 14%와 지방세법에 따른 지방소득세 1.4%(이자소득세의 10%)가 원천징수됩니다.</li>
+      <li><strong>세금우대 / 저율과세 (1.4%)</strong>: 신협, 새마을금고, 수협, 농·축협 등 상호금융 예탁금 혜택(1인당 통합 3천만원 한도)으로 소득세는 면제되고 농어촌특별세 1.4%만 부과됩니다.</li>
+      <li><strong>비과세 (0%)</strong>: 만 65세 이상, 장애인, 국가유공자 비과세종합저축(5천만원 한도) 또는 청년희망/도약계좌, ISA 만기 일부 비과세 적용 시 세금이 차감되지 않습니다.</li>
+      <li><strong>단수 처리</strong>: 국세기본법 및 은행 전산에 따른 10원 미만 절사(버림) 방식으로 계산되며, 실제 은행 예탁일수(윤년 366일, 월별 30/31일)나 가입 시점 규정에 따라 수십원 미만의 미세한 차이가 발생할 수 있습니다.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ==========================================
+     FIREBASE DB CONFIG MODAL
+     ========================================== -->
+<div class="modal-overlay" id="dbConfigModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 class="modal-title">🔥 Firebase Firestore DB 연동 설정</h3>
+      <button type="button" class="modal-close-btn" onclick="closeDbConfigModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p style="margin-bottom: 8px;">
+        Google Firebase의 NoSQL 실시간 클라우드 데이터베이스(Firestore)를 연결합니다.<br>
+        설정값이 없으면 자동으로 <strong>브라우저 로컬 DB 모드</strong>로 안전하게 작동합니다.
+      </p>
+
+      <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 12px; margin: 12px 0;">
+        <strong style="color: var(--text-main); font-size: 13px;">📌 1분 연동 방법:</strong>
+        <ol style="margin-left: 18px; margin-top: 6px; font-size: 12px; color: var(--text-sub);">
+          <li><a href="https://console.firebase.google.com" target="_blank" style="color: var(--primary);">Firebase Console</a> 접속 후 새 프로젝트 생성</li>
+          <li><strong>Firestore Database</strong> 만들기 (테스트 모드로 시작)</li>
+          <li>[프로젝트 설정] > [내 앱] > <strong>웹 앱(&lt;/&gt;)</strong> 추가 후 나오는 <code>firebaseConfig</code> 복사</li>
+          <li>아래 입력창에 붙여넣고 저장하면 모든 사용자 댓글이 실시간 동기화됩니다!</li>
+        </ol>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 12px;">
+        <label class="form-label" for="cfgApiKey"><span>API Key (apiKey)</span></label>
+        <input type="text" id="cfgApiKey" class="comment-input" placeholder="AIzaSy...">
+      </div>
+      <div class="form-group" style="margin-bottom: 12px;">
+        <label class="form-label" for="cfgProjectId"><span>Project ID (projectId)</span></label>
+        <input type="text" id="cfgProjectId" class="comment-input" placeholder="my-bank-project">
+      </div>
+      <div class="form-group" style="margin-bottom: 12px;">
+        <label class="form-label" for="cfgAppId"><span>App ID (appId)</span></label>
+        <input type="text" id="cfgAppId" class="comment-input" placeholder="1:123456789:web:abcdef...">
+      </div>
+
+      <details style="margin-top: 10px; font-size: 12px; color: var(--text-muted);">
+        <summary style="cursor: pointer; font-weight: 600;">Firestore 보안 규칙 팁 (보기)</summary>
+        <div class="modal-code-box">rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /comments/{commentId} {
+      allow read, write: if true;
+    }
+  }
+}</div>
+      </details>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="modal-btn secondary" onclick="resetToLocalDb()">로컬 모드로 전환</button>
+      <button type="button" class="modal-btn primary" onclick="saveFirebaseConfig()">설정 저장 및 DB 연결</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==========================================
+     DELETE CONFIRM MODAL
+     ========================================== -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal-box" style="max-width: 380px;">
+    <div class="modal-header">
+      <h3 class="modal-title">댓글 삭제</h3>
+      <button type="button" class="modal-close-btn" onclick="closeDeleteModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p style="margin-bottom: 12px;">댓글 작성 시 입력했던 비밀번호를 입력해주세요.</p>
+      <input type="password" id="deletePasswordInput" class="comment-input" placeholder="비밀번호 입력" autofocus>
+      <div id="deleteErrorMsg" style="color: var(--accent-red); font-size: 12px; margin-top: 6px; display: none;">비밀번호가 일치하지 않습니다.</div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="modal-btn secondary" onclick="closeDeleteModal()">취소</button>
+      <button type="button" class="modal-btn primary" style="background: var(--accent-red);" onclick="confirmDeleteComment()">삭제하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Message -->
+<div class="toast" id="toastMessage">안내 메시지</div>
+
+<script>
+  // ==========================================
+  // STATE MANAGEMENT
+  // ==========================================
+  let currentProduct = 'deposit'; // 'deposit' or 'savings'
+  let currentMethod = 'simple';   // 'simple' or 'compound'
+  let currentTaxType = 'normal';  // 'normal', 'prefer', 'zero', 'custom'
+
+  // DB State
+  let db = null;
+  let isFirebaseConnected = false;
+  let commentsData = [];
+  let currentSort = 'newest'; // 'newest' or 'likes'
+  let targetDeleteCommentId = null;
+  let unsubscribeFirestore = null;
+
+  const AVATAR_COLORS = [
+    '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', 
+    '#ec4899', '#06b6d4', '#f97316', '#6366f1'
+  ];
+
+  // ==========================================
+  // INITIALIZATION
+  // ==========================================
+  window.addEventListener('DOMContentLoaded', () => {
+    updateKoreanAmountText(getNumericValue('amountInput'));
+    calculate();
+    initDatabase();
+  });
+
+  // Switch between Deposit and Savings
+  function switchProduct(type) {
+    currentProduct = type;
+    const tabDeposit = document.getElementById('tabDeposit');
+    const tabSavings = document.getElementById('tabSavings');
+    const amountLabel = document.getElementById('amountLabel');
+    const resultTypeBadge = document.getElementById('resultTypeBadge');
+    const thPayment = document.getElementById('thPayment');
+
+    if (type === 'deposit') {
+      tabDeposit.classList.add('active');
+      tabSavings.classList.remove('active');
+      amountLabel.textContent = '예치 원금 (목돈)';
+      resultTypeBadge.textContent = '정기예금 만기 예상 결과';
+      thPayment.textContent = '원금(초기)';
+      const curVal = getNumericValue('amountInput');
+      if (curVal < 1000000) {
+        setInputValue('amountInput', 10000000);
+      }
+    } else {
+      tabDeposit.classList.remove('active');
+      tabSavings.classList.add('active');
+      amountLabel.textContent = '매월 적립액';
+      resultTypeBadge.textContent = '정기적금 만기 예상 결과';
+      thPayment.textContent = '월 적립액';
+      const curVal = getNumericValue('amountInput');
+      if (curVal > 10000000) {
+        setInputValue('amountInput', 500000);
+      }
+    }
+    updateKoreanAmountText(getNumericValue('amountInput'));
+    calculate();
+  }
+
+  // Switch Simple / Compound
+  function setMethod(method) {
+    currentMethod = method;
+    document.getElementById('btnSimple').classList.toggle('active', method === 'simple');
+    document.getElementById('btnCompound').classList.toggle('active', method === 'compound');
+    calculate();
+  }
+
+  // Tax Option Change
+  function handleTaxChange() {
+    const radios = document.getElementsByName('taxType');
+    for (const radio of radios) {
+      if (radio.checked) {
+        currentTaxType = radio.value;
+        break;
+      }
+    }
+    const customTaxWrap = document.getElementById('customTaxWrap');
+    if (currentTaxType === 'custom') {
+      customTaxWrap.classList.add('show');
+    } else {
+      customTaxWrap.classList.remove('show');
+    }
+    calculate();
+  }
+
+  // Quick Amount Buttons
+  function addAmount(value) {
+    const current = getNumericValue('amountInput');
+    const nextVal = current + value;
+    setInputValue('amountInput', nextVal);
+    updateKoreanAmountText(nextVal);
+    calculate();
+  }
+
+  function resetAmount() {
+    setInputValue('amountInput', 0);
+    updateKoreanAmountText(0);
+    calculate();
+  }
+
+  function handleAmountInput(input) {
+    let raw = input.value.replace(/[^0-9]/g, '');
+    let num = parseInt(raw, 10);
+    if (isNaN(num)) num = 0;
+    input.value = num.toLocaleString('ko-KR');
+    updateKoreanAmountText(num);
+    calculate();
+  }
+
+  function setPeriod(months) {
+    document.getElementById('periodInput').value = months;
+    calculate();
+  }
+
+  function setRate(rate) {
+    document.getElementById('rateInput').value = rate.toFixed(2);
+    calculate();
+  }
+
+  function getNumericValue(elementId) {
+    const val = document.getElementById(elementId).value;
+    const clean = String(val).replace(/[^0-9]/g, '');
+    const num = parseInt(clean, 10);
+    return isNaN(num) ? 0 : num;
+  }
+
+  function setInputValue(elementId, num) {
+    document.getElementById(elementId).value = Number(num).toLocaleString('ko-KR');
+  }
+
+  // Convert amount to Korean text
+  function updateKoreanAmountText(amount) {
+    const el = document.getElementById('amountKoreanText');
+    if (!amount || amount <= 0) {
+      el.textContent = '0원';
+      return;
+    }
+
+    const eok = Math.floor(amount / 100000000);
+    const man = Math.floor((amount % 100000000) / 10000);
+    const won = amount % 10000;
+
+    let res = '';
+    if (eok > 0) res += `${eok}억 `;
+    if (man > 0) res += `${man.toLocaleString('ko-KR')}만 `;
+    if (won > 0 && eok === 0 && man === 0) res += `${won.toLocaleString('ko-KR')}`;
+    res = res.trim() + '원';
+    el.textContent = res;
+  }
+
+  // ==========================================
+  // CORE CALCULATION LOGIC
+  // ==========================================
+  function calculate() {
+    const amount = getNumericValue('amountInput');
+    const periodMonths = parseInt(document.getElementById('periodInput').value, 10) || 0;
+    const annualRate = parseFloat(document.getElementById('rateInput').value) || 0;
+
+    const yearPart = Math.floor(periodMonths / 12);
+    const monthPart = periodMonths % 12;
+    let periodStr = '';
+    if (yearPart > 0) periodStr += `${yearPart}년 `;
+    if (monthPart > 0) periodStr += `${monthPart}개월`;
+    if (!periodStr) periodStr = `${periodMonths}개월`;
+    document.getElementById('periodYearText').textContent = periodStr.trim();
+
+    if (amount <= 0 || periodMonths <= 0 || annualRate <= 0) {
+      renderZeros(amount, periodMonths);
+      return;
+    }
+
+    const r = annualRate / 100;
+    let totalPrincipal = 0;
+    let interestBeforeTax = 0;
+    let monthlySchedule = [];
+
+    if (currentProduct === 'deposit') {
+      totalPrincipal = amount;
+      if (currentMethod === 'simple') {
+        interestBeforeTax = Math.floor(amount * r * (periodMonths / 12));
+        const monthlyInterest = (amount * r) / 12;
+        let cumulativeInterest = 0;
+        for (let m = 1; m <= periodMonths; m++) {
+          cumulativeInterest += monthlyInterest;
+          monthlySchedule.push({
+            month: m,
+            payment: (m === 1 ? amount : 0),
+            principal: amount,
+            monthInterest: Math.floor(monthlyInterest),
+            cumulativeInterest: Math.floor(cumulativeInterest)
+          });
+        }
+      } else {
+        const monthlyRate = r / 12;
+        let curBalance = amount;
+        for (let m = 1; m <= periodMonths; m++) {
+          const prevBalance = curBalance;
+          curBalance = curBalance * (1 + monthlyRate);
+          const monthInterest = curBalance - prevBalance;
+          monthlySchedule.push({
+            month: m,
+            payment: (m === 1 ? amount : 0),
+            principal: amount,
+            monthInterest: Math.floor(monthInterest),
+            cumulativeInterest: Math.floor(curBalance - amount)
+          });
+        }
+        interestBeforeTax = Math.floor(curBalance - amount);
+      }
+    } else {
+      totalPrincipal = amount * periodMonths;
+      if (currentMethod === 'simple') {
+        const sumMonths = (periodMonths * (periodMonths + 1)) / 2;
+        interestBeforeTax = Math.floor(amount * (r / 12) * sumMonths);
+        let cumPrincipal = 0;
+        let cumInterest = 0;
+        for (let m = 1; m <= periodMonths; m++) {
+          cumPrincipal += amount;
+          const monthInterest = cumPrincipal * (r / 12);
+          cumInterest += monthInterest;
+          monthlySchedule.push({
+            month: m,
+            payment: amount,
+            principal: cumPrincipal,
+            monthInterest: Math.floor(monthInterest),
+            cumulativeInterest: Math.floor(cumInterest)
+          });
+        }
+      } else {
+        const monthlyRate = r / 12;
+        let cumPrincipal = 0;
+        let runningBalance = 0;
+        let totalInterestAcc = 0;
+        for (let m = 1; m <= periodMonths; m++) {
+          cumPrincipal += amount;
+          runningBalance = (runningBalance + amount) * (1 + monthlyRate);
+          const monthInterest = runningBalance - cumPrincipal - totalInterestAcc;
+          totalInterestAcc += monthInterest;
+          monthlySchedule.push({
+            month: m,
+            payment: amount,
+            principal: cumPrincipal,
+            monthInterest: Math.floor(monthInterest),
+            cumulativeInterest: Math.floor(runningBalance - cumPrincipal)
+          });
+        }
+        interestBeforeTax = Math.floor(runningBalance - totalPrincipal);
+      }
+    }
+
+    // Taxes
+    let incomeTax = 0;
+    let localTax = 0;
+    let agriTax = 0;
+    let totalTax = 0;
+    let taxRateString = '15.4%';
+
+    const incomeTaxRow = document.getElementById('incomeTaxRow');
+    const localTaxRow = document.getElementById('localTaxRow');
+    const agriTaxRow = document.getElementById('agriTaxRow');
+
+    if (currentTaxType === 'normal') {
+      incomeTax = Math.floor((interestBeforeTax * 0.14) / 10) * 10;
+      localTax = Math.floor((incomeTax * 0.10) / 10) * 10;
+      totalTax = incomeTax + localTax;
+      taxRateString = '15.4% (일반)';
+      incomeTaxRow.style.display = 'flex';
+      localTaxRow.style.display = 'flex';
+      agriTaxRow.style.display = 'none';
+    } else if (currentTaxType === 'prefer') {
+      agriTax = Math.floor((interestBeforeTax * 0.014) / 10) * 10;
+      totalTax = agriTax;
+      taxRateString = '1.4% (세금우대)';
+      incomeTaxRow.style.display = 'none';
+      localTaxRow.style.display = 'none';
+      agriTaxRow.style.display = 'flex';
+    } else if (currentTaxType === 'zero') {
+      totalTax = 0;
+      taxRateString = '0% (비과세)';
+      incomeTaxRow.style.display = 'none';
+      localTaxRow.style.display = 'none';
+      agriTaxRow.style.display = 'none';
+    } else if (currentTaxType === 'custom') {
+      const customRate = parseFloat(document.getElementById('customTaxInput').value) || 0;
+      totalTax = Math.floor((interestBeforeTax * (customRate / 100)) / 10) * 10;
+      taxRateString = `${customRate.toFixed(1)}% (직접입력)`;
+      incomeTaxRow.style.display = 'none';
+      localTaxRow.style.display = 'none';
+      agriTaxRow.style.display = 'none';
+    }
+
+    const interestAfterTax = interestBeforeTax - totalTax;
+    const totalPayout = totalPrincipal + interestAfterTax;
+
+    let realAnnualYield = 0;
+    if (totalPrincipal > 0 && periodMonths > 0) {
+      if (currentProduct === 'deposit') {
+        realAnnualYield = (interestAfterTax / totalPrincipal) * (12 / periodMonths) * 100;
+      } else {
+        const avgMonths = (periodMonths + 1) / 2;
+        realAnnualYield = (interestAfterTax / (amount * avgMonths)) * 100;
+      }
+    }
+
+    // Render Results
+    document.getElementById('resTotalPayout').textContent = totalPayout.toLocaleString('ko-KR');
+    document.getElementById('resPrincipal').textContent = totalPrincipal.toLocaleString('ko-KR') + '원';
+    document.getElementById('resInterestBefore').textContent = '+ ' + interestBeforeTax.toLocaleString('ko-KR') + '원';
+    document.getElementById('resTotalTax').textContent = '- ' + totalTax.toLocaleString('ko-KR') + '원';
+    document.getElementById('resInterestAfter').textContent = interestAfterTax.toLocaleString('ko-KR') + '원';
+    document.getElementById('taxRateLabel').textContent = taxRateString;
+    document.getElementById('taxTotalInBox').textContent = totalTax.toLocaleString('ko-KR') + '원';
+
+    document.getElementById('resIncomeTax').textContent = incomeTax.toLocaleString('ko-KR') + '원';
+    document.getElementById('resLocalTax').textContent = localTax.toLocaleString('ko-KR') + '원';
+    document.getElementById('resAgriTax').textContent = agriTax.toLocaleString('ko-KR') + '원';
+    document.getElementById('resRealYield').textContent = `실질 수익률: 세후 연 ${realAnnualYield.toFixed(2)}%`;
+
+    renderTable(monthlySchedule);
+  }
+
+  function renderZeros(amount, periodMonths) {
+    const totalPrincipal = currentProduct === 'deposit' ? amount : amount * periodMonths;
+    document.getElementById('resTotalPayout').textContent = totalPrincipal.toLocaleString('ko-KR');
+    document.getElementById('resPrincipal').textContent = totalPrincipal.toLocaleString('ko-KR') + '원';
+    document.getElementById('resInterestBefore').textContent = '0원';
+    document.getElementById('resTotalTax').textContent = '0원';
+    document.getElementById('resInterestAfter').textContent = '0원';
+    document.getElementById('resRealYield').textContent = '실질 수익률: 0.00%';
+    renderTable([]);
+  }
+
+  function renderTable(schedule) {
+    const tbody = document.getElementById('scheduleTableBody');
+    tbody.innerHTML = '';
+    if (!schedule || schedule.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="center" style="padding: 20px; color: var(--text-muted);">표시할 내역이 없습니다.</td></tr>';
+      return;
+    }
+
+    schedule.forEach(item => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="center">${item.month}회차</td>
+        <td>${item.payment > 0 ? item.payment.toLocaleString('ko-KR') + '원' : '-'}</td>
+        <td>${item.principal.toLocaleString('ko-KR')}원</td>
+        <td style="color: var(--accent-green); font-weight: 500;">+${item.monthInterest.toLocaleString('ko-KR')}원</td>
+        <td style="font-weight: 600;">${item.cumulativeInterest.toLocaleString('ko-KR')}원</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function toggleScheduleTable() {
+    const section = document.getElementById('scheduleSection');
+    const btn = document.getElementById('toggleTableBtn');
+    if (section.classList.contains('show')) {
+      section.classList.remove('show');
+      btn.textContent = '월별 내역 보기 ▼';
+    } else {
+      section.classList.add('show');
+      btn.textContent = '월별 내역 닫기 ▲';
+      section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
+
+  function copyCalculationResult() {
+    const prodName = currentProduct === 'deposit' ? '정기예금' : '정기적금';
+    const amountVal = document.getElementById('amountInput').value;
+    const periodVal = document.getElementById('periodInput').value;
+    const rateVal = document.getElementById('rateInput').value;
+    const methodVal = currentMethod === 'simple' ? '단리' : '월복리';
+    const taxLabel = document.getElementById('taxRateLabel').textContent;
+
+    const totalPayout = document.getElementById('resTotalPayout').textContent;
+    const principal = document.getElementById('resPrincipal').textContent;
+    const interestBefore = document.getElementById('resInterestBefore').textContent;
+    const totalTax = document.getElementById('resTotalTax').textContent;
+    const interestAfter = document.getElementById('resInterestAfter').textContent;
+    const realYield = document.getElementById('resRealYield').textContent;
+
+    const textToCopy = `[은행 ${prodName} 이자 계산 결과]
+━━━━━━━━━━━━━━━━━━
+• 상품 유형: ${prodName} (${methodVal})
+• ${currentProduct === 'deposit' ? '예치 원금' : '월 적립액'}: ${amountVal}원
+• 예치 기간: ${periodVal}개월
+• 적용 금리: 연 ${rateVal}%
+• 과세 구분: ${taxLabel}
+━━━━━━━━━━━━━━━━━━
+■ 만기 수령액: ${totalPayout}원
+■ 총 납입원금: ${principal}
+■ 세전 이자: ${interestBefore}
+■ 차감 세금: ${totalTax}
+■ 세후 이자: ${interestAfter}
+■ ${realYield}
+━━━━━━━━━━━━━━━━━━
+* 대한민국 세법 및 10원 단위 절사 기준 적용.`;
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(textToCopy).then(() => {
+        showToast('결과가 클립보드에 복사되었습니다!');
+      }).catch(() => {
+        fallbackCopy(textToCopy);
+      });
+    } else {
+      fallbackCopy(textToCopy);
+    }
+  }
+
+  function fallbackCopy(text) {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    document.body.appendChild(textArea);
+    textArea.select();
+    try {
+      document.execCommand('copy');
+      showToast('결과가 클립보드에 복사되었습니다!');
+    } catch (err) {
+      alert('복사에 실패했습니다.');
+    }
+    document.body.removeChild(textArea);
+  }
+
+  function showToast(msg) {
+    const toast = document.getElementById('toastMessage');
+    toast.textContent = msg;
+    toast.classList.add('show');
+    setTimeout(() => {
+      toast.classList.remove('show');
+    }, 2400);
+  }
+
+  // ==========================================
+  // DATABASE & COMMENTS LOGIC
+  // ==========================================
+
+  function initDatabase() {
+    const savedConfig = getStoredFirebaseConfig();
+    if (savedConfig && savedConfig.apiKey && savedConfig.projectId) {
+      connectFirebase(savedConfig);
+    } else {
+      setLocalDbMode();
+    }
+  }
+
+  function getStoredFirebaseConfig() {
+    try {
+      const cfg = localStorage.getItem('calc_firebase_config');
+      return cfg ? JSON.parse(cfg) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function connectFirebase(config) {
+    try {
+      if (!firebase.apps.length) {
+        firebase.initializeApp(config);
+      }
+      db = firebase.firestore();
+      isFirebaseConnected = true;
+
+      // Update UI Badge
+      const badge = document.getElementById('dbStatusBadge');
+      badge.className = 'db-status-pill firebase-connected';
+      document.getElementById('dbStatusText').textContent = 'Firebase Firestore 실시간 연동 중';
+
+      // Subscribe to real-time changes
+      if (unsubscribeFirestore) unsubscribeFirestore();
+      unsubscribeFirestore = db.collection('bank_interest_comments')
+        .orderBy('createdAt', 'desc')
+        .limit(100)
+        .onSnapshot((snapshot) => {
+          const list = [];
+          snapshot.forEach(doc => {
+            const data = doc.data();
+            list.push({
+              id: doc.id,
+              nickname: data.nickname || '익명',
+              password: data.password || '',
+              content: data.content || '',
+              attachedCalc: data.attachedCalc || null,
+              likes: data.likes || 0,
+              createdAt: data.createdAt ? (data.createdAt.toDate ? data.createdAt.toDate().toISOString() : data.createdAt) : new Date().toISOString()
+            });
+          });
+          commentsData = list;
+          renderComments();
+        }, (error) => {
+          console.warn("Firestore 구독 실패 (보안 규칙 또는 네트워크 확인 필요):", error);
+          showToast('Firebase Firestore 연결 실패! 로컬 모드로 전환합니다.');
+          setLocalDbMode();
+        });
+
+      showToast('Firebase DB에 성공적으로 연결되었습니다!');
+    } catch (err) {
+      console.error("Firebase 초기화 에러:", err);
+      setLocalDbMode();
+    }
+  }
+
+  function setLocalDbMode() {
+    isFirebaseConnected = false;
+    db = null;
+    const badge = document.getElementById('dbStatusBadge');
+    badge.className = 'db-status-pill local-mode';
+    document.getElementById('dbStatusText').textContent = '로컬 브라우저 DB 모드 (클릭하여 Firebase 설정)';
+
+    // Load from LocalStorage
+    try {
+      const stored = localStorage.getItem('bank_calc_local_comments');
+      if (stored) {
+        commentsData = JSON.parse(stored);
+      } else {
+        // Initial sample comments
+        commentsData = [
+          {
+            id: 'sample-1',
+            nickname: '재테크꿈나무',
+            password: '123',
+            content: '새마을금고나 신협에서 3천만원까지 세금우대(1.4%) 받으면 일반과세 15.4%보다 세후 수령액이 훨씬 큽니다! 계산해보고 가입했어요.',
+            attachedCalc: {
+              product: '정기예금',
+              amount: '30,000,000원',
+              period: '12개월',
+              rate: '4.20%',
+              taxType: '1.4% (세금우대)',
+              interestAfter: '1,242,360원',
+              totalPayout: '31,242,360원'
+            },
+            likes: 5,
+            createdAt: new Date(Date.now() - 3600000 * 3).toISOString()
+          },
+          {
+            id: 'sample-2',
+            nickname: '적금러',
+            password: '123',
+            content: '월 50만원씩 1년 적금 넣으면 이자가 얼마나 붙는지 바로 알 수 있어서 유용하네요~ 다들 부자되세요!',
+            attachedCalc: {
+              product: '정기적금',
+              amount: '500,000원',
+              period: '12개월',
+              rate: '3.50%',
+              taxType: '15.4% (일반)',
+              interestAfter: '96,240원',
+              totalPayout: '6,096,240원'
+            },
+            likes: 3,
+            createdAt: new Date(Date.now() - 3600000 * 24).toISOString()
+          }
+        ];
+        saveLocalComments();
+      }
+    } catch (e) {
+      commentsData = [];
+    }
+    renderComments();
+  }
+
+  function saveLocalComments() {
+    try {
+      localStorage.setItem('bank_calc_local_comments', JSON.stringify(commentsData));
+    } catch (e) {}
+  }
+
+  // Handle Comment Submission
+  async function handleCommentSubmit(event) {
+    event.preventDefault();
+    const nickname = document.getElementById('inputNickname').value.trim();
+    const password = document.getElementById('inputPassword').value.trim();
+    const content = document.getElementById('inputContent').value.trim();
+    const attachChecked = document.getElementById('attachCalcCheckbox').checked;
+
+    if (!nickname || !password || !content) {
+      alert('닉네임, 비밀번호, 댓글 내용을 모두 입력해주세요.');
+      return;
+    }
+
+    let attachedCalc = null;
+    if (attachChecked) {
+      const prodName = currentProduct === 'deposit' ? '정기예금' : '정기적금';
+      const amountVal = document.getElementById('amountInput').value + '원';
+      const periodVal = document.getElementById('periodInput').value + '개월';
+      const rateVal = document.getElementById('rateInput').value + '%';
+      const taxLabel = document.getElementById('taxRateLabel').textContent;
+      const interestAfter = document.getElementById('resInterestAfter').textContent;
+      const totalPayout = document.getElementById('resTotalPayout').textContent + '원';
+
+      attachedCalc = {
+        product: prodName,
+        amount: amountVal,
+        period: periodVal,
+        rate: rateVal,
+        taxType: taxLabel,
+        interestAfter: interestAfter,
+        totalPayout: totalPayout
+      };
+    }
+
+    const btnSubmit = document.getElementById('btnSubmitComment');
+    btnSubmit.disabled = true;
+    btnSubmit.textContent = '등록 중...';
+
+    const newCommentObj = {
+      nickname: nickname,
+      password: password,
+      content: content,
+      attachedCalc: attachedCalc,
+      likes: 0,
+      createdAt: isFirebaseConnected ? firebase.firestore.FieldValue.serverTimestamp() : new Date().toISOString()
+    };
+
+    if (isFirebaseConnected && db) {
+      try {
+        await db.collection('bank_interest_comments').add(newCommentObj);
+        showToast('댓글이 Firebase 클라우드 DB에 등록되었습니다!');
+        document.getElementById('inputContent').value = '';
+      } catch (err) {
+        console.error("댓글 등록 실패:", err);
+        alert('Firebase 저장에 실패했습니다. (보안 규칙 또는 권한을 확인해주세요.)');
+      }
+    } else {
+      // Local Mode
+      const localObj = {
+        id: 'local-' + Date.now(),
+        ...newCommentObj,
+        createdAt: new Date().toISOString()
+      };
+      commentsData.unshift(localObj);
+      saveLocalComments();
+      renderComments();
+      showToast('댓글이 로컬 DB에 저장되었습니다!');
+      document.getElementById('inputContent').value = '';
+    }
+
+    btnSubmit.disabled = false;
+    btnSubmit.innerHTML = `<svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg> 댓글 등록`;
+  }
+
+  // Like a comment
+  async function handleLikeComment(id) {
+    if (isFirebaseConnected && db) {
+      try {
+        await db.collection('bank_interest_comments').doc(id).update({
+          likes: firebase.firestore.FieldValue.increment(1)
+        });
+        showToast('추천했습니다!');
+      } catch (err) {
+        console.error("좋아요 오류:", err);
+      }
+    } else {
+      const target = commentsData.find(c => c.id === id);
+      if (target) {
+        target.likes = (target.likes || 0) + 1;
+        saveLocalComments();
+        renderComments();
+        showToast('추천했습니다!');
+      }
+    }
+  }
+
+  // Delete comment with password
+  function promptDeleteComment(id) {
+    targetDeleteCommentId = id;
+    document.getElementById('deletePasswordInput').value = '';
+    document.getElementById('deleteErrorMsg').style.display = 'none';
+    document.getElementById('deleteModal').classList.add('open');
+    setTimeout(() => {
+      document.getElementById('deletePasswordInput').focus();
+    }, 100);
+  }
+
+  function closeDeleteModal() {
+    document.getElementById('deleteModal').classList.remove('open');
+    targetDeleteCommentId = null;
+  }
+
+  async function confirmDeleteComment() {
+    const inputPw = document.getElementById('deletePasswordInput').value.trim();
+    if (!inputPw) return;
+
+    if (isFirebaseConnected && db) {
+      try {
+        const docRef = db.collection('bank_interest_comments').doc(targetDeleteCommentId);
+        const docSnap = await docRef.get();
+        if (!docSnap.exists) {
+          alert('이미 삭제된 댓글입니다.');
+          closeDeleteModal();
+          return;
+        }
+        const data = docSnap.data();
+        if (data.password === inputPw) {
+          await docRef.delete();
+          closeDeleteModal();
+          showToast('댓글이 삭제되었습니다.');
+        } else {
+          document.getElementById('deleteErrorMsg').style.display = 'block';
+        }
+      } catch (err) {
+        alert('삭제 중 오류가 발생했습니다.');
+      }
+    } else {
+      const idx = commentsData.findIndex(c => c.id === targetDeleteCommentId);
+      if (idx !== -1) {
+        if (commentsData[idx].password === inputPw) {
+          commentsData.splice(idx, 1);
+          saveLocalComments();
+          renderComments();
+          closeDeleteModal();
+          showToast('댓글이 삭제되었습니다.');
+        } else {
+          document.getElementById('deleteErrorMsg').style.display = 'block';
+        }
+      }
+    }
+  }
+
+  // Sort Tab Change
+  function changeSort(sort) {
+    currentSort = sort;
+    document.getElementById('sortNewest').classList.toggle('active', sort === 'newest');
+    document.getElementById('sortLikes').classList.toggle('active', sort === 'likes');
+    renderComments();
+  }
+
+  // Render comments list
+  function renderComments() {
+    const container = document.getElementById('commentsListContainer');
+    const badge = document.getElementById('commentCountBadge');
+    badge.textContent = `${commentsData.length}개`;
+
+    if (!commentsData || commentsData.length === 0) {
+      container.innerHTML = `
+        <div class="no-comments-box">
+          <p style="font-size: 24px; margin-bottom: 6px;">💬</p>
+          <p>첫 번째 금융 후기나 댓글을 남겨보세요!</p>
+        </div>
+      `;
+      return;
+    }
+
+    // Sort
+    const list = [...commentsData];
+    if (currentSort === 'likes') {
+      list.sort((a, b) => (b.likes || 0) - (a.likes || 0));
+    } else {
+      list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    }
+
+    container.innerHTML = '';
+    list.forEach((item, index) => {
+      const card = document.createElement('div');
+      card.className = 'comment-card';
+
+      // Pick avatar color by nickname hash
+      const colorIdx = Math.abs(hashCode(item.nickname || '익명')) % AVATAR_COLORS.length;
+      const avatarBg = AVATAR_COLORS[colorIdx];
+      const initial = (item.nickname && item.nickname.length > 0) ? item.nickname[0] : '익';
+
+      // Time string
+      const timeStr = formatRelativeTime(item.createdAt);
+
+      // Attached calc tag
+      let attachedHtml = '';
+      if (item.attachedCalc) {
+        const c = item.attachedCalc;
+        attachedHtml = `
+          <div class="comment-attached-badge">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+            <span>[${escapeHtml(c.product)}] ${escapeHtml(c.amount)} · ${escapeHtml(c.period)} · ${escapeHtml(c.rate)} (세후이자 ${escapeHtml(c.interestAfter)})</span>
+          </div>
+        `;
+      }
+
+      card.innerHTML = `
+        <div class="comment-card-top">
+          <div class="comment-author-box">
+            <div class="author-avatar" style="background: ${avatarBg};">${escapeHtml(initial)}</div>
+            <div class="author-info">
+              <span class="author-name">${escapeHtml(item.nickname)}</span>
+              <span class="comment-time">${timeStr}</span>
+            </div>
+          </div>
+        </div>
+        ${attachedHtml}
+        <div class="comment-body">${escapeHtml(item.content)}</div>
+        <div class="comment-card-bottom">
+          <button type="button" class="btn-action-icon" onclick="handleLikeComment('${item.id}')">
+            👍 추천 <span>${item.likes || 0}</span>
+          </button>
+          <button type="button" class="btn-action-icon delete-btn" onclick="promptDeleteComment('${item.id}')">
+            🗑️ 삭제
+          </button>
+        </div>
+      `;
+      container.appendChild(card);
+    });
+  }
+
+  // ==========================================
+  // CONFIG MODAL LOGIC
+  // ==========================================
+  function openDbConfigModal() {
+    const cfg = getStoredFirebaseConfig();
+    if (cfg) {
+      document.getElementById('cfgApiKey').value = cfg.apiKey || '';
+      document.getElementById('cfgProjectId').value = cfg.projectId || '';
+      document.getElementById('cfgAppId').value = cfg.appId || '';
+    }
+    document.getElementById('dbConfigModal').classList.add('open');
+  }
+
+  function closeDbConfigModal() {
+    document.getElementById('dbConfigModal').classList.remove('open');
+  }
+
+  function saveFirebaseConfig() {
+    const apiKey = document.getElementById('cfgApiKey').value.trim();
+    const projectId = document.getElementById('cfgProjectId').value.trim();
+    const appId = document.getElementById('cfgAppId').value.trim();
+
+    if (!apiKey || !projectId) {
+      alert('API Key와 Project ID는 필수 입력값입니다.');
+      return;
+    }
+
+    const config = {
+      apiKey: apiKey,
+      projectId: projectId,
+      appId: appId,
+      authDomain: `${projectId}.firebaseapp.com`
+    };
+
+    localStorage.setItem('calc_firebase_config', JSON.stringify(config));
+    closeDbConfigModal();
+    connectFirebase(config);
+  }
+
+  function resetToLocalDb() {
+    localStorage.removeItem('calc_firebase_config');
+    if (unsubscribeFirestore) unsubscribeFirestore();
+    closeDbConfigModal();
+    setLocalDbMode();
+    showToast('로컬 브라우저 DB 모드로 전환되었습니다.');
+  }
+
+  // Helpers
+  function hashCode(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = (hash << 5) - hash + str.charCodeAt(i);
+      hash |= 0;
+    }
+    return hash;
+  }
+
+  function formatRelativeTime(dateString) {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffSec = Math.floor((now - date) / 1000);
+
+    if (diffSec < 60) return '방금 전';
+    if (diffSec < 3600) return `${Math.floor(diffSec / 60)}분 전`;
+    if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}시간 전`;
+    if (diffSec < 86400 * 7) return `${Math.floor(diffSec / 86400)}일 전`;
+
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}.${m}.${d}`;
+  }
+
+  function escapeHtml(string) {
+    if (!string) return '';
+    return String(string)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+</script>
+
+</body>
+</html>
